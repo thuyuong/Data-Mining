@@ -1,0 +1,119 @@
+---
+title: "Competition"
+author: "uông Thị Thanh Thủy - Trần Gia Bảo - Hoàng Thị Cẩm Tú - Lê Kha" 
+date: "2021/01/23"
+output:
+  pdf_document:
+    latex_engine: xelatex
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+load packages
+```{r}
+library(ggthemes)
+library(ggplot2)
+library(caret)
+library(randomForest)
+library(e1071)
+library(grid)
+library(gridExtra)
+library(mice)
+library(dplyr)
+library(pscl)
+library(caretEnsemble)
+```
+
+```{r}
+#load data
+
+train <- read.csv('C:/Users/uongt/OneDrive/Desktop/Competition/train.csv',sep="|",stringsAsFactors = F)
+test  <- read.csv('C:/Users/uongt/OneDrive/Desktop/Competition/test.csv',sep="|",stringsAsFactors = F)
+
+```
+set random seed for model reproducibility
+make fraud a factor
+number 0 is trusty and number 1 is fraud 
+```{r}
+set.seed(100)
+train$fraud <- as.factor(train$fraud)
+levels(train$fraud) <- c("trusty","fraud")
+
+```
+The function trainControl can be used to specifiy the type of resampling
+In the code above, 10-fold CV mean dividing your training dataset randomly into 10 parts and then using each of 10 parts as testing dataset for the model trained on other 9. We take the average of the 10 error terms thus obtained.
+
+In 3 repeats of 10 fold CV, we’ll perform the average of 3 error terms obtained by performing 10 fold CV five times. Important thing to note is that 3 repeats of 10 fold CV is not same as 30 fold CV.
+
+Caret Ensemble allows the user to train multiple models by using the caret List function. The only drawback is the computing time this might take. Models can also be combined to utilize the caret stack function to make better predictions.
+
+```{r}
+# prepare training scheme
+#Stacking Algorithms - Run multiple algos in one call
+trainControl <- trainControl(method="repeatedcv", 
+                             number=10, 
+                             repeats=3,
+                             savePredictions=TRUE, 
+                             classProbs=TRUE)
+
+```
+I start by parallelizing to decrease the speed it takes to train multiple models. I also created a train control using repeatedcv. The models being fitted were Random Forest,xgbDart, and svmRadial. The caretlist function is similar to the train function in the caret package.
+```{r}
+algorithmList <- c('rf','xgbDART', 'svmRadial')
+```
+
+```{r}
+
+set.seed(100)
+models <- caretList(fraud~., data=train, trControl=trainControl, methodList=algorithmList) 
+results <- resamples(models)
+summary(results)
+save(models,file="models_final.RData")
+
+```
+
+
+Combine the predictions of models to form final prediction
+Create the trainControl
+```{r}
+set.seed(101)
+stackControl <- trainControl(method="repeatedcv", 
+                             number=10, 
+                             repeats=3,
+                             savePredictions=TRUE, 
+                             classProbs=TRUE)
+
+```
+Ensemble the predictions of `models` to form a new combined prediction based on glm
+
+```{r}
+stack.glm <- caretStack(models, method="glm", metric="Accuracy", trControl=stackControl)
+save(stack.glm,file="combined_predictions.RData")
+print(stack.glm)
+
+```
+
+
+The three models gives an accuracy of 98%.
+
+
+
+Predict on testData
+
+```{r}
+stack_predicteds <- predict(stack.glm, newdata=test)
+head(stack_predicteds)
+save.image("script.RData")
+```
+trusty is number 0 and fraud is number 1
+make stack_predicteds a data frame
+call name col is fraud
+```{r}
+levels(stack_predicteds) <- c(0,1)
+stack_predicteds <- data.frame(stack_predicteds)
+names(stack_predicteds)<-"fraud"
+write.csv(stack_predicteds,file="C:/Users/uongt/OneDrive/Desktop/Competition/stack_predicteds.csv",row.names=FALSE)
+```

@@ -1,0 +1,255 @@
+---
+title: "Lab 3 - Classification Assignments"
+author: "Uông Thị Thanh Thủy"
+date: "2020/10/30"
+output:
+  html_document:
+    df_print: paged
+  pdf_document:
+    latex_engine: xelatex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Câu hỏi 1
+Trong bài hướng dẫn, ta đã áp dụng `random forest` trên tập dữ liệu `Boston` dùng `mtry=6` và `ntree=25`, `ntree=500`. Bây giờ, bạn hãy tạo một biểu đồ (tương tự như trong slide 21) mô tả `test error` của `random forest`trên tập dữ liệu này theo `mtry` và `ntree` dùng một miền giá trị cho `mtry` và `ntree`. Mô tả kết quả thu được.
+```{r q1}
+# Viết mã R của bạn ở đây
+#install.packages("MASS")
+
+library(MASS)
+library(randomForest)
+
+
+
+train <- sample(1:nrow(Boston), nrow(Boston) / 2)
+Boston.train <- Boston[train, -14]
+Boston.test <- Boston[-train, -14]
+Y.train <- Boston[train, 14]
+Y.test <- Boston[-train, 14]
+rf.boston1 <- randomForest(Boston.train, y = Y.train, xtest = Boston.test, ytest = Y.test, mtry = ncol(Boston) - 1, ntree = 500)
+rf.boston2 <- randomForest(Boston.train, y = Y.train, xtest = Boston.test, ytest = Y.test, mtry = (ncol(Boston) - 1) / 2, ntree = 500)
+rf.boston3 <- randomForest(Boston.train, y = Y.train, xtest = Boston.test, ytest = Y.test, mtry = sqrt(ncol(Boston) - 1), ntree = 500)
+plot(1:500, rf.boston1$test$mse, col = "green", type = "l", xlab = "Number of Trees", ylab = "Test MSE", ylim = c(10, 19))
+lines(1:500, rf.boston2$test$mse, col = "red", type = "l")
+lines(1:500, rf.boston3$test$mse, col = "blue", type = "l")
+legend("topright", c("m = p", "m = p/2", "m = sqrt(p)"), col = c("green", "red", "blue"), cex = 1, lty = 1)
+```
+
+Giải thích kết quả:
+
+
+
+## Câu hỏi 2
+Trong bài hướng dẫn, ta đã tạo một `classiﬁcation tree` trên tập dữ liệu `Carseats` sau khi chuyển biến `Sales` thành biến categorical là `High`. Bây giờ, bạn hãy dự đoán biến `Sales` dùng `regression tree`, xem biến này là biến numeric.
+
+a. Chia dữ thành `training set` và `test set`.
+```{r q2a}
+# Viết mã R của bạn ở đây
+#install.packages("ISLR")
+
+library(ISLR)
+set.seed(1)
+train <- sample(1:nrow(Carseats), nrow(Carseats) / 2)
+Carseats.train <- Carseats[train, ]
+Carseats.test <- Carseats[-train, ]
+```
+
+b. Fit một `regression tree` trên `training set`. Vẽ tree thu được và diễn giải kết quả. Cho biết `test MSE` là bao nhiêu?
+```{r q2b}
+# Viết mã R của bạn ở đây
+library(tree)
+tree.carseats <- tree(Sales ~ ., data = Carseats.train)
+summary(tree.carseats)
+plot(tree.carseats)
+text(tree.carseats, pretty = 0)
+yhat <- predict(tree.carseats, newdata = Carseats.test)
+mean((yhat - Carseats.test$Sales)^2)
+```
+
+c. Sử dụng `cross-validation` để xác định mức độ phức tạp tối ưu của cây. Việc `pruning` (cắt tỉa cây) có cải thiện `test MSE` không?
+```{r q2c}
+# Viết mã R của bạn ở đây
+cv.carseats <- cv.tree(tree.carseats)
+plot(cv.carseats$size, cv.carseats$dev, type = "b")
+tree.min <- which.min(cv.carseats$dev)
+points(tree.min, cv.carseats$dev[tree.min], col = "red", cex = 2, pch = 20)
+prune.carseats <- prune.tree(tree.carseats, best = 8)
+plot(prune.carseats)
+text(prune.carseats, pretty = 0)
+yhat <- predict(prune.carseats, newdata = Carseats.test)
+mean((yhat - Carseats.test$Sales)^2)
+```
+
+d. Sử dụng `bagging` để phân tích tập dữ liệu này. Cho biết `test MSE` thu được là bao nhiêu? Sử dụng hàm `importance()` để xác định biến quan trọng nhất.
+```{r q2d}
+# Viết mã R của bạn ở đây
+bag.carseats <- randomForest(Sales ~ ., data = Carseats.train, mtry = 10, ntree = 500, importance = TRUE)
+yhat.bag <- predict(bag.carseats, newdata = Carseats.test)
+mean((yhat.bag - Carseats.test$Sales)^2)
+importance(bag.carseats)
+```
+
+e. Sử dụng `random forest` để phân tích tập dữ liệu này. Cho biết `test MSE` thu được là bao nhiêu? Sử dụng hàm `importance()` để xác định biến quan trọng nhất. Mô tả hiệu quả của `m`, số biến được xem xét để tách, trên `error rate` thu được.
+```{r q2e}
+# Viết mã R của bạn ở đây
+rf.carseats <- randomForest(Sales ~ ., data = Carseats.train, mtry = 3, ntree = 500, importance = TRUE)
+yhat.rf <- predict(rf.carseats, newdata = Carseats.test)
+mean((yhat.rf - Carseats.test$Sales)^2)
+importance(rf.carseats)
+```
+
+
+## Câu hỏi 3
+Câu hỏi này liên quan đến tập dữ liệu `OJ` của thư viện `ISLR`.
+
+a. Tạo một `training set` chứa một mẫu ngẫu nhiên gồm 800 điểm dữ liệu, và một `test set` chứa các điểm dữ liệu còn lại.
+```{r q3a}
+# Viết mã R của bạn ở đây
+library(ISLR)
+set.seed(1)
+train = sample(dim(OJ)[1],800)
+OJ.train = OJ[train,]
+OJ.test = OJ[-train,]
+```
+
+b. Fit một tree trên `training data`, với `Purchase` là output và các biến khác là input. Sử dụng hàm `summary()` để tạo một `summary statistics` về cây thu được. Mô tả kết quả thu được. Cho biết `training error rate` là bao nhiêu? Cây có bao nhiêu `terminal node`?
+```{r q3b}
+# Viết mã R của bạn ở đây
+tree.oj <- tree(Purchase ~ ., data = OJ.train)
+summary(tree.oj)
+```
+
+c. Liệt kê chi tiết về output của cây bằng cách dùng tên của `tree object`. Chọn một `terminal node` và giải thích thông tin nó thể hiện.
+```{r q3c}
+# Viết mã R của bạn ở đây
+tree.oj
+```
+
+d. Tạo một biểu đồ của cây và giải thích kết quả.
+```{r q3d}
+# Viết mã R của bạn ở đây
+plot(tree.oj)
+text(tree.oj,pretty=0)
+```
+
+e. Dự đoán output trên `test set` và tạo một `confusion matrix` để so sánh `actual test labels` với `predicted test labels`. Cho biết `test error rate`?
+```{r q3e}
+# Viết mã R của bạn ở đây
+tree.pred = predict(tree.oj, newdata = OJ.test, type = "class")
+table(tree.pred,OJ.test$Purchase)
+1-(160+64)/270
+```
+
+f. Áp dụng hàm `cv.tree()` trên `training set` để xác định `optimal tree size`.
+```{r q3f}
+# Viết mã R của bạn ở đây
+cv.oj <- cv.tree(tree.oj, FUN = prune.misclass)
+cv.oj
+```
+
+g. Tạo một biểu đồ với `tree size` trên `x-axis` và `cross-validated classiﬁcation error rate` trên `y-axis`.
+```{r q3g}
+# Viết mã R của bạn ở đây
+plot(cv.oj$size, cv.oj$dev, type = "b", xlab = "Tree size", ylab = "Deviance")
+```
+
+h. Cho biết `tree size` nào tương ứng với `cross-validated classiﬁcation error rate` nhỏ nhất?
+```{r q3h}
+# Viết mã R của bạn ở đây
+#Cây 2-node là cây nhỏ nhất với cross-validated classiﬁcation error rate thấp nhất.
+```
+
+i. Tạo một `pruned tree` tương ứng với `optimal tree size` dùng `cross-validation`. Nếu `cross-validation` không cho ra kết quả là một `pruned tree` thì tạo một `pruned tree` với 5 `terminal nodes`.
+```{r q3i}
+# Viết mã R của bạn ở đây
+prune.oj <- prune.misclass(tree.oj, best = 2)
+plot(prune.oj)
+text(prune.oj, pretty = 0)
+```
+
+j. So sánh `training error rate` giữa `pruned tree` và `unpruned tree`. Cây nào cho kết quả tốt hơn?
+```{r q3j}
+# Viết mã R của bạn ở đây
+summary(tree.oj)
+summary(prune.oj)
+#Tỷ lệ lỗi phân loại pruned tree sai cao hơn một chút đối với unpruned tree (0,205 so với 0,1588) nên unpruned tree kết quả tốt hơn
+```
+
+k. So sánh `test error rate` giữa `pruned tree` và `unpruned tree`. Cây nào cho kết quả tốt hơn?
+```{r q3k}
+# Viết mã R của bạn ở đây
+prune.pred <- predict(prune.oj, OJ.test, type = "class")
+table(prune.pred, OJ.test$Purchase)
+1 - (119 + 81) / 270
+```
+
+
+## Câu hỏi 4
+Ta sẽ sử dụng `boosting` để sự đoán `Salary` trong tập dữ liệu `Hitters`.
+
+a. Loại bỏ những dòng trong tập dữ liệu mà giá trị `Salary` là không có hoặc không biết, sau đó lấy `log` của `Salary`.
+
+```{r}
+Hitters <- na.omit(Hitters)
+Hitters$Salary <- log(Hitters$Salary)
+```
+
+b. Tạo một `training set` gồm 200 điểm dữ liệu đầu tiên và `test set` là các điểm dữ liệu còn lại trong tập dữ liệu.
+```{r}
+train <- 1:200
+Hitters.train <- Hitters[train, ]
+Hitters.test <- Hitters[-train, ]
+```
+
+
+c. Thực hiện `boosting` trên `training set` với `1,000 trees` dùng một dãy các giá trị cho tham số $\lambda$ (`shrinkage parameter`). Tạo một biểu đồ với `x-axis` là các giá trị $\lambda$  khác nhau và `y-axis` là `training set MSE` tương ứng.
+
+```{r}
+library(gbm)
+set.seed(1)
+pows <- seq(-10, -0.2, by = 0.1)
+lambdas <- 10^pows
+train.err <- rep(NA, length(lambdas))
+for (i in 1:length(lambdas)) {
+    boost.hitters <- gbm(Salary ~ ., data = Hitters.train, distribution = "gaussian", n.trees = 1000, shrinkage = lambdas[i])
+    pred.train <- predict(boost.hitters, Hitters.train, n.trees = 1000)
+    train.err[i] <- mean((pred.train - Hitters.train$Salary)^2)
+}
+plot(lambdas, train.err, type = "b", xlab = "Shrinkage values", ylab = "Training MSE")
+```
+
+d. Tạo một biểu đồ với `x-axis` là các giá trị $\lambda$  khác nhau và `y-axis` là `test set MSE` tương ứng. 
+```{r}
+set.seed(1)
+test.err <- rep(NA, length(lambdas))
+for (i in 1:length(lambdas)) {
+    boost.hitters <- gbm(Salary ~ ., data = Hitters.train, distribution = "gaussian", n.trees = 1000, shrinkage = lambdas[i])
+    yhat <- predict(boost.hitters, Hitters.test, n.trees = 1000)
+    test.err[i] <- mean((yhat - Hitters.test$Salary)^2)
+}
+plot(lambdas, test.err, type = "b", xlab = "Shrinkage values", ylab = "Test MSE")
+min(test.err)
+lambdas[which.min(test.err)]
+```
+
+
+f. Cho biết biến nào là biến quan trọng nhất trong `boosted model`?
+
+```{r}
+boost.hitters <- gbm(Salary ~ ., data = Hitters.train, distribution = "gaussian", n.trees = 1000, shrinkage = lambdas[which.min(test.err)])
+summary(boost.hitters)
+# biến CAtBat quan trọng nhất
+```
+
+g. Áp dụng `bagging` và `random forest` trên `training set` với các tham số mà bạn cho là tốt nhất. So sánh `test MSE` của `boosting` với `test MSE` của `random forest` và `bagging`.
+```{r}
+set.seed(1)
+bag.hitters <- randomForest(Salary ~ ., data = Hitters.train, mtry = 19, ntree = 500)
+yhat.bag <- predict(bag.hitters, newdata = Hitters.test)
+mean((yhat.bag - Hitters.test$Salary)^2)
+#MSE thử nghiệm của bagging là 0,007, thấp hơn một chút so với MSE thử nghiệm của boosting.
+```
+

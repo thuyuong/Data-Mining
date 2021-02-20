@@ -1,0 +1,263 @@
+---
+title: "Lab 2 - Data Exploration Assignments"
+author: "Your name"
+date: "2020/10/09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 1. Các câu hỏi dưới đây liên quan đến tập dữ liệu `usedcars` từ file `usedcars.csv`.
+a. Load file `usedcars.csv` lưu vào biến `usedcars`.
+```{r 1a}
+# Viết code của bạn vào đây
+getwd()
+setwd("C:/Users/uongt/Downloads/BT R")
+usedcars=read.csv("usedcars.csv")
+```
+
+b. Xem cấu trúc của `usedcars` dùng hàm `str()`.
+```{r 1b}
+# Viết code của bạn vào đây
+str(usedcars)
+```
+
+c. Xem dữ liệu của `usedcars` dùng hàm `fix()`.
+```{r 1c, eval=FALSE}
+# Viết code của bạn vào đây
+fix(usedcars)
+```
+
+d. Xem các giá trị tổng kết của các biến (thuộc tính) trong `usedcars` dùng hàm `summary()`.
+```{r 1d}
+# Viết code của bạn vào đây
+summary(usedcars)
+```
+
+e. Vẽ biểu đồ `boxplot` và `histogram` cho các biến có giá trị số.
+```{r 1e}
+# Viết code của bạn vào đây
+par(mfrow=c(1,2))  
+boxplot(usedcars$price, usedcars$year, usedcars$mileage)
+hist(usedcars$price)
+hist(usedcars$mileage)
+hist(usedcars$year)
+
+```
+
+f. Tính `mean`, `var`, `sd` của các biến có giá trị số.
+```{r 1f}
+# Viết code của bạn vào đây
+
+mean(usedcars$price)
+var(usedcars$price)
+sd(usedcars$price)
+mean(usedcars$year)
+var(usedcars$year)
+sd(usedcars$year)
+
+```
+
+g. Dữ liệu trong `usedcars` có 3 biến kiểu chuỗi (loại `nominal`) là `model`, `color`, và `transmission`. Ngoài ra, biến `year` mặc dù là số, có thể được xem là biến kiểu `ordinal`. Khác với biến kiểu số (`numeric`), biến kiểu `nominal` và `ordinal` (categorical data) thường được xác định dùng table hơn là dùng các summary statistics. Sử dụng hàm `table()` để sinh ra các bảng một chiều cho các biến này.
+```{r 1g}
+# Viết code của bạn vào đây
+
+```
+
+h. Dùng hàm `plot()` để vẽ biểu đồ tán xạ (scatterplot) thể hiện mối quan hệ giữa các biến. Thêm vào các đối số `main`, `xlab`, `ylab` để mô tả rõ hơn thông tin về các biến và tên của biểu đồ.
+```{r 1h}
+# Viết code của bạn vào đây
+x=rnorm(50)
+y=rnorm(50)
+plot(x,y,xlab = "x", ylab ="y", col="grey", main = "BD")
+box(col="gray")
+lmfit  <- lm(y~x)
+abline(lmfit)
+```
+
+i. Dùng hàm `pairs()` để sinh ra scatterplot matrix giữa các biến.
+```{r 1i}
+# Viết code của bạn vào đây
+N <- 1000                              
+a1 <- rnorm(200)                        
+a2 <- a1 + rnorm(N, 0, 3)              
+a3 <- 2 * a1 - a2 + rnorm(N, 0, 2)    
+data <- data.frame(a1, a2, a3)         
+pairs(data) 
+```
+
+## 2. Các câu hỏi dưới đây liên quan đến tập dữ liệu `college` từ file `College.csv`. 
+Tập dữ liệu `college` này chứa một số biến của 777 đại học ở Mỹ. Các biến đó là:
+
+- `Private`: Public/private indicator
+- `Apps`: Number of applications received
+- `Accept`: Number of applicants accepted
+- `Enroll`: Number of new students enrolled
+- `Top10perc`: New students from top 10 % of high school class
+- `Top25perc`: New students from top 25 % of high school class
+- `F.Undergrad`: Number of full-time undergraduates
+- `P.Undergrad`: Number of part-time undergraduates
+- `Outstate`: Out-of-state tuition
+- `Room.Board`: Room and board costs
+- `Books`: Estimated book costs
+- `Personal`: Estimated personal spending
+- `PhD`: Percent of faculty with Ph.D.’s
+- `Terminal`: Percent of faculty with terminal degree
+- `S.F.Ratio`: Student/faculty ratio
+- `perc.alumni`: Percent of alumni who donate
+- `Expend`: Instructional expenditure per student
+- `Grad.Rate`: Graduation rate
+
+a. Dùng hàm `read.csv()` để đọc tập dữ liệu này vào R, đặt tên nó là `college`.
+```{r 2a}
+# Viết code của bạn vào đây
+getwd()
+setwd("C:/Users/uongt/Downloads/BT R")
+college=read.csv("college.csv")
+```
+
+
+b. Xem sơ bộ qua dữ liệu dùng hàm `fix()`. 
+```{r 2b.1}
+# Viết code của bạn vào đây
+fix(college)
+```
+
+Cột đầu tiên là tên của của mỗi đại học. Hãy thử các lệnh sau:
+```{r 2b.2, eval=FALSE}
+rownames(college)=college[,1]
+
+```
+
+```{r 2b.3, eval=FALSE}
+fix(college)
+```
+
+Bạn nên thấy có một cột row.names với mỗi đại học. Điều này có nghĩa R có một tên dòng (row name) tương ứng với một đại học. R sẽ không thực hiện các tính toán trên cột row name này. Tuy nhiên, ta cần bỏ cột đầu này đi. Thử đoạn mã sau:
+
+
+```{r 2b.5, eval=FALSE}
+college <- college[, -1] 
+fix(college)
+```
+
+Giờ bạn nên thấy cột đầu trong dữ liệu là `Private`. Chú ý rằng cột một cột tên row.names giờ xuất hiện trước cột `Private`. Tuy nhiên, đây không phải là một cột dữ liệu mà là tên R đặt cho mỗi dòng.
+
+c. Dùng hàm `summary()` để sinh ra một tóm tắt của các biến trong tập dữ liệu. 
+```{r 2c}
+# Viết code của bạn vào đây
+summary(college)
+```
+
+d. Dùng hàm `pairs()` để tạo ra một scatterplot matrix của 10 cột (biến) đầu tiên trong dữ liệu. Gợi ý, tham chiếu 10 cột đầu tiên trong ma trận `A` dùng `A[,1:10]`.
+```{r 2d}
+# Viết code của bạn vào đây
+pairs(college[,1:10]) 
+```
+
+e. Dùng hàm `plot()` sinh ra các `boxplot` của `Outstate` so với `Private`.
+```{r 2e}
+# Viết code của bạn vào đây
+plot(college$Outstate,college$Private) 
+```
+
+
+f. Tạo một biến mới tên `Elite` (tinh hoa), dùng biến `Top10perc`. Ta dự định chia các đại học thành 2 nhóm dựa trên tỷ lệ sinh viên đến từ $10\%$ học sinh giỏi nhất của các lớp trung học có vượt quá $50\%$ hay không.
+```{r 2f.1, eval=FALSE}
+Elite=rep("No",nrow(college))
+Elite[college$Top10perc >50]="Yes"
+Elite=as.factor(Elite)
+college=data.frame(college ,Elite)
+```
+
+Sử dụng hàm `summary()` để xem có bao nhiêu đại học `elite`. Sau đó, sử dụng hàm `plot()` để tạo ra các `boxplot` giữa `Outstate` và `Elite`.
+```{r 2f.2}
+summary(college)
+plot(college$Outstate,college$Elite)
+```
+
+
+g. Sử dụng hàm `hist()` để tạo vài histogram với các 
+`numbers of bins` cho một vài biến định lượng. Bạn có thể sử dụng lệnh `par(mfrow=c(2,2))` để chia màn hình hiển thị thành 4 miền để vẽ cả 4 plot đồng thời. Thay đổi các argument của hàm này để chia màn hình theo tỷ lệ bạn muốn.
+`Outstate` và `Elite`.
+```{r 2g}
+# Viết code của bạn vào đây
+par(mfrow=c(2,2))
+hist(college$Books)
+hist(college$Outstate)
+hist(college$Apps)
+hist(college$Enroll)
+```
+
+
+h. Tiếp tục khám phá tập dữ liệu và cung cấp một số tóm tắt ngắn gọn về những điều bạn khám phá được.
+`Outstate` và `Elite`.
+```{r 2h}
+plot(college$Outstate,college$Elite)
+```
+
+## 3. Các câu hỏi dưới đây dùng tập dữ liệu `Boston`
+(a) Cài package `MASS` và load tập dữ liệu `Boston` 
+```{r 3a.1, eval=FALSE}
+install.packages("MASS")
+library(MASS)
+
+Boston
+```
+
+Tìm hiểu thêm về tập dữ liệu `Boston` dùng lệnh sau:
+```{r 3a.2, eval=FALSE}
+?Boston
+```
+
+Có bao nhiêu dòng, cột (biến) trong tập dữ liệu này? Ý nghĩa của mỗi dòng và cột?
+```{r 3a.3}
+# Viết code của bạn vào đây
+
+```
+
+b. Tạo các pairwise scatterplot của các cột (biến) trong tập dữ liệu. Mô tả nhận xét của bạn.
+```{r 3b}
+# Viết code của bạn vào đây
+
+```
+
+c. Có biến nào tương quan với per capita crime rate không? Nếu có hãy giải thích.
+```{r 3c}
+# Viết code của bạn vào đây
+
+```
+
+
+d. Có suburb nào của Boston có crime rates cao đáng kể? Tax rates? Pupil-teacher ratios? Nhận xét về miền giá trị của mỗi biến.
+```{r 3d}
+# Viết code của bạn vào đây
+
+```
+
+e. Bao nhiêu suburb (vùng ngoại ô) trong tập dữ liệu quanh Charles river?
+```{r 3e}
+# Viết code của bạn vào đây
+
+```
+
+f. Cho biết median pupil-teacher ratio giữa các town trong tập dữ liệu?
+```{r 3f}
+# Viết code của bạn vào đây
+
+```
+
+g. Cho biết suburb nào của Boston có median của owner-occupied homes là nhỏ nhất? Cho biết giá trị của các biến khác của suburb đó và những giá trị đó so với miền giá trị của các biến đó? 
+```{r 3g}
+# Viết code của bạn vào đây
+
+```
+
+h. Trong tập dữ liệu này, có bao nhiêu suburb trung bình có hơn bảy phòng cho mỗi ngôi nhà? Nhiều hơn tám phòng cho mỗi ngôi nhà? Nhận xét về các suburb có trung bình hơn tám phòng mỗi nơi ở.
+```{r 3h}
+# Viết code của bạn vào đây
+
+```
+

@@ -1,0 +1,237 @@
+---
+title: "Lab 4 - Classification Assignments"
+author: "hoangqd"
+date: "2020/11/13"
+output:
+  html_document:
+    df_print: paged
+  pdf_document:
+    latex_engine: xelatex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Câu hỏi 1
+Cho input của hàm là hai vector mô tả nhãn thật sự và kết quả phân loại của mô hinhg trên test set. Giả sử các phần tử của hai vector này là đều là số nguyên và hai vector có chiều dài bằng nhau. Ta thành lập confusion matrix $M$ như sau ($C_i$ là các nhãn/lớp, $p$ là số nhãn/lớp):
+
+```{r, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
+#install.packages("kknn")
+cm <- "
+| $Actual/Predicted$ | $C_1$    | $C_2$    | ...     | $C_p$     |
+| ------------------ | :------: | :------: | :-----: | --------: |
+| $C_1$              | $M_{11}$ | $M_{12}$ | ...     | $M_{1p}$  |
+| $C_2$              | $M_{21}$ | $M_{22}$ | ...     | $M_{2p}$  |
+| ...                | ...      | ...      | ...     | ...       |
+| $C_p$              | $M_{p1}$ | $M_{p2}$ | ...     | $M_{pp}$  |"
+cat(cm)
+```
+
+Dựa trên ma trận $M$, các độ đo $TP$ (True Positive), $TN$ (True Negative), $FP$ (False Positive), $FN$ (False Negative), $P$ (Precision), $R$ (Recall), và $F\_1$ ($F_1\_measure$) được tính theo các công thức sau:
+
+### TP, TN, FP, và FN
+
+$$TP_i = M_{ii}$$
+
+$$FP_i = \sum_{j=1,j \ne i}^{p} M_{ji}$$
+
+$$FN_i = \sum_{j=1,j \ne i}^{p} M_{ij}$$
+
+$$TN_i = (\sum_{i=1}^{p} \sum_{j=1}^{p} M_{ij}) - (TP_i + FP_i + FN_i)$$
+
+### Per-class Precision, Recall, và F measure
+
+$$P_i = \frac{M_{ii}}{\sum_{j=1}^{p} M_{ji}}$$ 
+$$R_i = \frac{M_{ii}}{\sum_{j=1}^{p} M_{ij}}$$ 
+$$F_i = \frac{2 * P_i * R_i}{P_i + R_i}$$
+
+### Micro-averaged Precision, Recall
+
+$$P = \frac{\sum_{j=1}^{p} TP_i}{\sum_{j=1}^{p} (TP_i + FP_i)} $$ 
+$$R = \frac{\sum_{j=1}^{p} TP_i}{\sum_{j=1}^{p} (TP_i + FN_i)} $$ 
+
+### Macro-averaged Precision, Recall
+$$P = \sum_{j=1}^{p} \frac{TP_i}{TP_i + FP_i} $$ 
+
+$$R = \sum_{j=1}^{p} \frac{TP_i}{TP_i + FN_i} $$ 
+
+### F measure (cho cả trường hợp Micro-averaged và Macro-averaged)
+$$F_\beta = \frac{(\beta^2 + 1) * P * R}{\beta^2 * P + R}$$
+
+Khi $\beta = 1$ thì 
+
+$$F_1 = \frac{2 * P * R}{P + R}$$
+
+Cho hai vector $a$ (nhãn thật sự) và $p$ (nhãn được dự đoán bởi mô hình) như bên dưới 
+```{r, echo=TRUE}
+a = c(2, 3, 2, 3, 1, 1, 2, 1, 1, 2, 2, 3, 1, 3, 2)
+p = c(2, 3, 2, 2, 2, 3, 1, 3, 2, 3, 3, 3, 3, 1, 1)
+cm = table(a, p)
+cm
+```
+
+### a. Viết hàm tính TP, TN, FP, và FN
+Cho m là confusion matrix, i là lớp. Viết hàm tính $TP$, $TN$, $FP$, và $FN$ theo code mẫu bên dưới.
+```{r, echo=TRUE}
+TP <- function(m, i) {
+  m[i,i]
+}
+
+FN <- function(m, i) {
+  FN=0;
+  for(j in 1:sqrt(length(m)))
+  {
+    if(j!=i)
+      FN=FN+m[i,j];
+  }
+  return(FN);
+}
+
+FP <- function(m, i) {
+  FP=0;
+  
+  for(j in 1:sqrt(length(m)))
+  {
+    if(j!=i)
+      FP=FP+m[j,i];
+  }
+  return(FP);
+}
+
+TN <- function(m, i) {
+  TN=0;
+  for(z in 1:sqrt(length(m)))
+  {
+    for (j in 1:sqrt(length(m))) 
+    {
+      TN=TN+m[z,j];
+    }
+  }
+  return(TN-(TP(m,i)+FP(m,i)+FN(m,i)));
+}
+
+TP(cm, 1)
+TN(cm, 1)
+FP(cm, 1)
+TN(cm, 1)
+TP(cm, 2)
+TN(cm, 2)
+FP(cm, 2)
+TN(cm, 2)
+TP(cm, 3)
+TN(cm, 3)
+FP(cm, 3)
+TN(cm, 3)
+```
+
+### b. Viết hàm tính Per-class Precision, Recall, và F measure
+```{r, echo=TRUE}
+P <- function(m, i) {
+  p=0;
+  
+  for(j in 1:sqrt(length(m)))
+  {
+    p=p+m[j,i];
+  }
+  return((m[i,i])/p);
+}
+
+R <- function(m, i) {
+  r=0;
+  for(j in 1:sqrt(length(m)))
+  {
+    r=r+m[i,j];
+  }
+  return((m[i,i])/r);
+}
+
+F <- function(m, i) {
+  return((2*(P(m,i)*R(m,i)))/(P(m,i)+R(m,i)))
+}
+
+P(cm, 1)
+R(cm, 1)
+F(cm, 1)
+P(cm, 2)
+R(cm, 2)
+F(cm, 2)
+P(cm, 3)
+R(cm, 3)
+F(cm, 3)
+```
+
+### c. Viết hàm tính Micro-averaged Precision, Recall, và F measure
+```{r, echo=TRUE}
+P_micro <- function(m) {
+  P_micro=0;
+  for(i in 1:sqrt(length(m)))
+  {
+    P_micro=P_micro+(TP(m,i)/(TP(m,i)+FP(m,i)))
+  }
+  return(P_micro)
+}
+
+R_micro <- function(m) {
+  R_micro=0;
+  for(i in 1:sqrt(length(m)))
+  {
+    R_micro=R_micro+(TP(m,i)/(TP(m,i)+FN(m,i)))
+  }
+  return(R_micro)
+}
+F_micro <- function(m) {
+  (2*P_micro(m)*R_micro(m))/(P_micro(m)+R_micro(m))
+}
+
+P_micro(cm)
+R_micro(cm)
+F_micro(cm)
+```
+
+### d. Viết hàm tính Macro-averaged Precision, Recall, và F measure
+```{r, echo=TRUE}
+P_macro <- function(m) {
+
+}
+
+R_macro <- function(m) {
+
+}
+
+F_macro <- function(m) {
+
+}
+
+P_macro(cm)
+R_macro(cm)
+F_macro(cm)
+```
+
+
+## Câu hỏi 2
+Thực hiện lại các bước như phần hướng dẫn ở trên cho tập dữ liệu `iris` với các độ đo `Accuracy`, `Precision`, `Recall` và `F-measure` dùng các thuật toán `k-nn`, `decision tree`, và `Naive Bayes` với các phương pháp đánh giá sau:
+
+### a. Random sampling (thử nghiệm với k = 5, tỉ lệ train/test là 2/1)
+**Random sampling** là phương pháp đánh giá kết quả phân loại bằng cách lặp lại phương pháp **holdout** k lần và tính giá trị trung bình. Phương pháp holdout là phương pháp đánh giá kết quả phân loại bằng cách chia tập dữ liệu thành hai tập train và test *một cách ngẫu nhiên* theo một tỉ lệ nào đó. Trong câu hỏi này bạn cần thực hiện phương pháp đánh giá random sampling (dùng các độ đo `Accuracy`, `Precision`, `Recall` và `F-measure`) bằng cách lặp lại phương pháp holdout 5 lần (`k = 5`). Mỗi lần, bạn cần chia ngẫu nhiên dữ liệu thành hai tập train và test với tỉ lệ 2/1 (`p = 2/3`). Cuối cùng bạn tính trung bình kết quả trên tất cả các lần. Ngoài code, bạn hãy nhận xét thêm về kết quả của các thuật toán.
+
+```{r, echo=TRUE}
+
+```
+
+
+### b. Leave-one-out
+**Leave-one-out** là dạng đặt biệt của phương pháp đánh giá kết quả phân loại **k-fold cross validation** khi `k = n` (`n` là số phần tử của tập dữ liệu). Trong câu hỏi này bạn cần thực hiện phương pháp đánh giá leave-one-out (dùng các độ đo `Accuracy`, `Precision`, `Recall` và `F-measure`). Ngoài code, bạn hãy nhận xét thêm về kết quả của các thuật toán.
+
+```{r, echo=TRUE}
+
+```
+
+
+### c. Stratified k-fold cross validation (k = 5)
+**Stratified k-fold cross validation** là dạng đặt biệt của phương pháp đánh giá kết quả phân loại **k-fold cross validation** khi cần đảm bảo tỉ lệ lớp của các fold giống với tỷ lệ lớp của tập dữ liệu. Ví dụ: nếu tập dữ liệu có 3 lớp với tỷ lệ 1:1:1 thì khi chia tập dữ liệu làm k fold ngẫu nhiên, bạn cũng phải đảm bảo tỷ lệ này ở mỗi fold. Trong câu hỏi này bạn cần thực hiện phương pháp đánh giá stratified k-fold cross validation (`k = 5`) (dùng các độ đo `Accuracy`, `Precision`, `Recall` và `F-measure`). Ngoài code, bạn hãy nhận xét thêm về kết quả của các thuật toán.
+
+```{r, echo=TRUE}
+
+```
+

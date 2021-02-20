@@ -1,0 +1,221 @@
+---
+title: "Titanic - Machine Learning from Disaster"
+author: "uông Thị Thanh Thủy - Trần Gia Bảo - Hoàng Thị Cẩm Tú - Lê Kha" 
+date: "2021/01/24"
+output:
+  pdf_document:
+    latex_engine: xelatex
+  html_document:
+    df_print: paged
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+1. GIỚI THIỆU 
+Nhóm đã chọn đề tài giải quyết và dự đoán về sự sống sót trên tàu Titanic - Titanic - Machine Learning from Disaster.  
+Nhóm đã sử dụng Megan Risdal làm nguồn cảm hứng và xây dựng dựa trên nó.  Nhóm thực hiện một số kỹ thuật tính năng và nhiều hình ảnh hóa dữ liệu minh họa trong quá trình thực hiện.  Sau đó, nhóm sẽ sử dụng randomForest,  để tạo một mô hình dự đoán sự sống sót trên tàu Titanic.
+Tập lệnh có ba phần như sau: 
+  - Kỹ thuật tính năng (Feature engineering)
+  - Thiếu giá trị (Missing value imputation)
+  - Dự đoán (Prediction)
+1.1 Load libraries and check the data
+```{r}
+library('caret')
+library('e1071') # classification algorithm
+library('grid')
+library('gridExtra')
+library('pscl')
+library('rpart') # classification algorithm
+library('ggplot2') # visualization
+library('ggthemes') # visualization
+library('scales') # visualization
+library('dplyr') # data manipulation
+library('mice') # imputation
+library('randomForest') # classification algorithm
+library('plyr') # feature correlation
+library('corrplot') # feature correlation plotting
+```
+Các gói đã được thêm vào, bây giờ thêm các bảng có liên quan với train, test
+```{r}
+#load data
+train <- read.csv('C:/Users/uongt/Downloads/titanic/train.csv', na.strings = c("N/A","DIV/0!",""), stringsAsFactors = TRUE)
+test  <- read.csv('C:/Users/uongt/Downloads/titanic/test.csv', na.strings = c("N/A","DIV/0!",""), stringsAsFactors = TRUE)
+full <- bind_rows(train,test) # Tạo tập dữ liệu mới với cả train và test
+str(full) # xem cấu trúc dữ liệu
+```
+Chúng ta đã biết về các biến của mình, loại lớp của chúng và một vài quan sát đầu tiên về mỗi biến.  Biết rằng nhóm đang làm việc với 1309 quan sát của 12 biến và 1630 quan sát của 2 biến.  Để làm cho mọi thứ rõ ràng hơn một chút vì một vài tên biến không hiển thị 100%, đây là những gì chúng ta phải giải quyết:
+           full
+Name	             Description
+PassengerId	      ID duy nhất của hành khách
+Survived	        Sống sót [1] hoặc đã chết [0]
+Pclass	          Hạng hành khách [1,2,3]
+Name              Tên và chức danh của hành khách
+Sex               Giới tính của hành khách
+Age	              Tuổi của hành khách
+SibSp	            Số anh chị em/vợ/chồng trên tàu
+Parch	            Số lượng cha mẹ/trẻ em trên tàu
+Ticket	          Số vé
+Fare	            Giá tiền
+Cabin	            Số Cabin
+Embarked	        Cảng Lên tàu
+```{r}
+# gán các giá trị bị mất thành NA
+full[full==""] <- NA
+a<- apply(full,2,is.na)
+summary(a)
+apply(a,2,sum)
+```
+
+
+2.FEATURE ENGINEERING
+Bước thứ hai là bước quan trọng nhất! Mặc dù đã có rất nhiều tính năng, nhưng vẫn cần bổ sung các giá trị còn thiếu và cũng tìm kiếm các mối tương quan và tính năng có thể ảnh hưởng đến sự sống còn của hành khách.
+2.1 Tên của hành khách
+Biến đầu tiên mà làm việc là "nam" của hành khách vì có thể chia nhỏ nó thành các biến có ý nghĩa bổ sung cung cấp các dự đoán hoặc được sử dụng để tạo thêm các tính năng mới.  Ví dụ, "title" hành khách được chứa trong biến tên hành khách, chúng ta có thể sử dụng "surname" để đại diện cho gia đình.
+```{r}
+# Trích xuất tiêu đề từ tên
+full$Title<- gsub('(.*, )|(\\..*)','', full$Name)
+
+# Trích xuất họ
+full$Surname <- tolower(sapply(full$Name,function(x) {strsplit(x, split = '[,.]')[[1]][1]}))
+
+# tạo một bảng hiển thị tất cả các tổ hợp tiêu đề
+table(full$Sex,full$Title)
+
+```
+=> Xem xét sự phân bố Chức danh (Title) cho mỗi giới tính (Sex)
+
+
+Có những chức danh với lượng người chia sẽ chúng rất thấp. Nhiệm vụ là tổng hợp các chức danh hiếm trong các nhóm phụ của riêng chúng.
+```{r}
+officer_title <- c('Capt','Col','Major')
+community_title <- c('Dr','Sir')
+rare_title <- c('Dona', 'Lady', 'the Countess', 'Don', 'Rev', 'Jonkheer')
+full$Title[full$Title == 'Mlle']        <- 'Miss' 
+full$Title[full$Title == 'Ms']          <- 'Miss'
+full$Title[full$Title == 'Mme']         <- 'Mrs' 
+full$Title[full$Title %in% rare_title]  <- 'Rare Title'
+full$Title[full$Title %in% officer_title]  <- 'Crew'
+full$Title[full$Title %in% community_title]  <- 'Member'
+```
+Danh sách các Title bây giờ có vẻ khái quát hơn.
+```{r}
+table(full$Sex,full$Title)
+```
+2.2 Khả năng sinh tồn của các gia đình lớn
+Chúng ta đã tách tên hành khách thành một số biến mới. Bây giờ, chúng ta có thể tạo một số biến gia đình mới.  Đầu tiên sẽ tạo một biến quy mô gia đình dựa trên số anh chị em / vợ / chồng Và số con cái / cha mẹ. 
+Dưới đây là tổng hợp các quy mô gia đình và kiểm tra tỷ lệ sống sót của họ.
+```{r}
+full$Fsize <- full$SibSp + full$Parch + 1 # Hành khách + anh chị em/vợ/chồng + cha mẹ/con cái
+full$IsAlone[full$Fsize==1] <- 'Alone' # Hành khách có đi du lịch 1 mình 
+full$IsAlone[full$Fsize!=1] <- 'Not Alone'
+full$IsAlone <- factor(full$IsAlone)
+full$Family <- paste(full$Surname, full$Fsize, sep='_') # Họ của nhửng gia đình
+```
+Xem tỷ lệ sống sót của họ
+```{r}
+full <- full[order(full$PassengerId),] #sắp xếp dữ liệu
+ggplot(full[1:891,], aes(x = Fsize, fill = factor(Survived))) +
+  geom_bar(stat='bin', position='dodge') +
+  scale_x_continuous(breaks=c(1:11)) +
+  labs(x = 'Family Size') +
+  theme_few()
+```
+Chúng ta có thể thấy rằng khả năng sống sót thấp đối với những người độc thân và những người có quy mô gia đình trên 4. 
+Chúng ta có thể thu gọn biến này thành ba cấp độ sẽ hữu ích vì tương đối ít gia đình lớn.  Bây giờ chúng ta sẽ tạo một biến quy mô gia đình tùy ý.
+```{r}
+full$FsizeD[full$Fsize == 1] <- 'singleton'
+full$FsizeD[full$Fsize < 5 & full$Fsize > 1] <- 'small'
+full$FsizeD[full$Fsize > 4] <- 'large'
+mosaicplot(table(full$FsizeD, full$Survived), main='Family Size by Survival', shade=TRUE) # Biểu đồ
+```
+Biểu đồ vẫn cho thấy sự sống thấp của người độc thân và gia đình lớn.
+Bây giờ, nhóm sẽ đo sự sinh sống theo biên độ tuổi, nhưng có 263 bị thiếu giá trị tuổi. Chúng ta sẽ giải quyết việc thiếu giá trị tuổi. 
+
+2.3 Nếu đi du lịch với bạn 
+Một chi tiết là có những vé trùng lặp.  Điều này cho thấy mọi người đã đi du lịch cùng nhau mà không cần phải là họ hàng, gia đình của nhau.  Những vé này cũng có giá vé giống hệt nhau, có nghĩa là giá vé nên được chia cho số lượng người mua nó.  Điều này sẽ giúp chúng ta có cái nhìn tổng quan hơn về giá vé dựa trên các tính năng khác nhau.
+```{r}
+n_occur <- data.frame(table(full$Ticket))
+full <- merge(full,n_occur, by.x="Ticket", by.y="Var1", x.all=T)
+full$Fare <- full$Fare / full$Freq
+```
+
+2.4 Những chữ cái này trong cột Cabin
+Các giá trị Cabin chỉ ra rằng có ba tham số. Tham số đầu tiên luôn là một chữ cái.  Mỗi chữ cái tương ứng với "deck" mà căn phòng có thể được tìm thấy.  Chúng ta phải điều tra xem nếu nằm trên một "deck" nhất định sẽ làm tăng cơ hội sống sót của họ.
+```{r}
+full$Deck<-factor(sapply(full$Cabin, function(x) {strsplit(x, NULL)[[1]][1]}))
+```
+
+Quan sát biểu đồ Desk/Survived
+```{r}
+full <- full[order(full$PassengerId),]
+full$Deck[full$Deck=='']<-NA
+full$Deck <- factor(full$Deck)
+full$Deck <- addNA(full$Deck)
+ggplot(full[1:891,],aes(x=Deck,fill=factor(Survived)))+geom_bar()+scale_fill_discrete("Survived?")
+```
+
+Có vẻ như có rất nhiều giá trị bị thiếu. Hãy xem dữ liệu không có các giá trị bị thiếu này.
+```{r}
+levels(full$Deck)[9] <- "TT"
+train <- full[1:891,] # Look only at Data with known survival
+ggplot(train[train$Deck!='TT',],aes(x=Deck,fill=factor(Survived)))+geom_bar()+scale_fill_discrete("Survived?")
+```
+Dường như có một số mối tương quan, nhưng với quá nhiều giá trị bị thiếu, sẽ không có ý nghĩa gì để đưa ra kết luận
+
+
+
+
+3. GIÁ TRỊ BỊ MẤT 
+Trước khi tiếp tục với kỹ thuật tính năng, phải xử lý các giá trị bị thiếu. Thiếu các giá trị trong Age, Fare, Embarked và Deck
+
+3.1 các giá trị bị thiếu trong Fare và Embarked
+Khi kiểm tra các giá trị bị thiếu trong cột Fare và thấy rằng hàng 1044 có một Fare bị thiếu. Đây là hành khách từ hạng ba, khởi hành từ cảng S. Chúng ta sẽ cung cấp cho anh ta một Fare tương ứng với Fare trung bình cho trường hợp này.
+```{r}
+full$Fare[1044] <- median(full[full$Pclass == '3' & full$Embarked == 'S', ]$Fare, na.rm = TRUE)
+```
+Nhìn vào Embarked, các hàng có số 62 và 830 không có giá trị cho Embarked. Hãy xem những hành khách này đã trả bao nhiêu cho vé của họ và họ sẽ được xếp ở đâu theo class và Fare của họ
+```{r}
+full$Fare[full$PassengerId==62][1]
+full$Fare[full$PassengerId==830][1]
+```
+Có vẻ như cả hai hành khách đều trả số tiền như nhau - 40 đô la. Hãy kiểm tra nơi này so với giá vé trung bình cho mỗi cảng.
+```{r}
+embark_fare <- full %>% filter(PassengerId != 62 & PassengerId != 830)
+ggplot(embark_fare, aes(x = Embarked, y = Fare, fill = factor(Pclass))) +
+  geom_boxplot() +
+  geom_hline(aes(yintercept=40), colour='red', linetype='dashed', lwd=2) +
+  scale_y_continuous(labels=dollar_format()) +
+  scale_fill_discrete("Passenger class") +
+  labs(title= "Fares by Embarked") +
+  theme_few()
+```
+Giá vé mà những hành khách này phải trả gần nhất với mức trung bình của hạng 1 ở cảng C
+
+```{r}
+full$Embarked[c(62, 830)] <- 'C'
+```
+
+
+3.2 các giá trị bị thiếu trong Age (tuổi). 
+có khá nhiều giá trị Age bị thiếu trong dữ liệu.  Chúng ta sẽ làm khác đi một chút trong việc áp đặt các giá trị tuổi bị thiếu. Chúng ta sẽ tạo một mô hình dự đoán độ tuổi dựa trên các biến khác.
+```{r}
+sum(is.na(full$Age))
+```
+Bước đầu tiên là tính toán các biến số và sau đó sử dụng mice để dự đoán Age
+```{r}
+full$PassengerId <- factor(full$PassengerId)
+full$Pclass <- factor(full$Pclass)
+full$Sex <- factor(full$Sex)
+full$Embarked <- factor(full$Embarked)
+full$Title <- factor(full$Title)
+full$Surname <- factor(full$Surname)
+full$Family <- factor(full$Family)
+full$FsizeD <- factor(full$FsizeD)
+
+set.seed(129)
+mice_mod <- mice(full[, !names(full) %in% c('PassengerId','Name','Ticket',
+			'Cabin','Family','Surname','Survived')], method='rf')
+mice_output <- complete(mice_mod)
+```
+
